@@ -1,0 +1,238 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<stdbool.h>
+#include<stdarg.h>
+#include<setjmp.h>
+#include<math.h>
+
+
+#define FLOAT_DECIMAL_DIGIT 6
+#define DOUBLE_DECIMAL_DIGIT 15
+
+typedef enum {
+	TYPE_INT,
+	TYPE_FLOAT,
+	TYPE_DOUBLE,
+	TYPE_STRING,
+	TYPE_CHAR,
+	TYPE_LONG_INT,
+	TYPE_LONG_DOUBLE,
+	TYPE_HEX,
+	TYPE_OCTAL,
+	TYPE_UNDEFINED
+} DataType;
+
+DataType toType(const char* str) {
+	switch (*str)
+	{
+	case 'd': return TYPE_INT;
+	case 'f': return TYPE_FLOAT;
+	case 's': return TYPE_STRING;
+	case 'c': return TYPE_CHAR;
+	case 'x': return TYPE_HEX;
+	case 'o': return TYPE_OCTAL;
+	case 'l':
+		*str++;
+		if (*str == 'd') return TYPE_LONG_INT;
+		if (*str == 'f') return TYPE_DOUBLE;
+		return TYPE_UNDEFINED;
+	default: return TYPE_UNDEFINED;
+	}
+}
+
+jmp_buf jump_buffer;
+
+void throw_error(const char* error) {
+	printf("%s\n", error);
+	longjmp(jump_buffer, 1);  // Jump back to the setjmp location with error code 1
+}
+
+
+void toString(char* _holder, size_t _holderCount, DataType type, void* var) {
+
+	char*	buffer = malloc(sizeof(char) * 64);
+	size_t	_count = 0, count = 0;
+
+	if (!buffer) return;
+
+
+	if (type == TYPE_INT) {
+		int value = *(int*)var;
+
+		if (value < 0) {
+			_holder[_count++] = '-';
+			value *= -1;
+		}
+		
+		do {
+			buffer[count++] = value % 10 + '0';
+			value /= 10;
+		} while (value != 0);
+
+		while(count-- > 0) {
+			if (_count >= _holderCount - 1) break;
+			_holder[_count++] = buffer[count];
+		}
+
+		_holder[_count++] = '\0';
+
+		free(buffer);
+	}
+	else if (type == TYPE_FLOAT || type == TYPE_DOUBLE) {
+		int		   N = (type == TYPE_FLOAT) ? FLOAT_DECIMAL_DIGIT : DOUBLE_DECIMAL_DIGIT;
+		long long  temp = 1;
+		for (int i = 0; i < N; i++) temp *= 10;  
+
+		double		value = (type == TYPE_FLOAT) ? *(float*)var : *(double*)var;
+		int			integer = (int)value;
+		long long	decimal = llabs((long long)((value - integer) * temp + 0.5)); // long long absolute
+
+		if (value < 0) {
+			_holder[_count++] = '-';
+			integer = -integer;
+		}
+
+		do {
+			buffer[count++] = '0' + (integer % 10);
+			integer /= 10;
+		} while (integer != 0);
+
+		while (count-- > 0) {
+			if (_count >= _holderCount - 1) break;
+			_holder[_count++] = buffer[count];
+		}
+
+		if (_count < _holderCount - 1) _holder[_count++] = '.';
+
+		count = 0;
+
+		do {
+			buffer[count++] = '0' + (decimal % 10);
+			decimal /= 10;
+		} while (decimal != 0);
+
+		while (count-- > 0) {
+			if (_count >= _holderCount - 1) break;
+			_holder[_count++] = buffer[count];
+		}
+
+		_holder[_count] = '\0';
+
+		free(buffer);
+	}
+	else if (type == TYPE_HEX || type == TYPE_OCTAL) {
+
+	}
+	
+	else {
+		throw_error("Invalid Data Type - toString()");
+	}
+}
+
+int my_fputc(char c, FILE* stream) {
+	// NEXT STEP : CREATE MyFILE struct and simulate 
+	return fputc(c, stdout);
+}
+
+int my_putchar(char c) {
+	return my_fputc(c, stdout); // fputc(int c, FILE *stream);
+	
+}
+
+
+int my_printf(const char* str, ...) {
+
+	va_list	args;
+
+	va_start(args, str);
+
+	char	buffer[1024];
+
+	size_t	bufferCount = 0, _size = 64;
+
+	char*	holder = malloc(sizeof(char) * _size);
+
+	if (!holder) return;
+
+	while (bufferCount < sizeof(buffer) - 1 && *str != '\0') {
+		
+		if (*str == '%') {
+
+			*str++;
+
+			DataType type = toType(str);
+
+			void* val = NULL;
+
+			if (type == TYPE_UNDEFINED) {
+				free(holder);
+				my_printf("Invalid Data Type - my_printf()");
+				return -1;
+			}
+
+			if (type == TYPE_STRING) {
+				char* arg = va_arg(args, char*);
+				for (int i = 0; arg[i] != '\0'; i++) {
+					if (bufferCount >= sizeof(buffer) - 1) break;
+					buffer[bufferCount++] = arg[i];
+				}
+				*str++;
+				continue;
+			}
+
+			if (type == TYPE_CHAR) {
+				char arg = va_arg(args, char);
+				buffer[bufferCount++] = arg;
+				*str++;
+				continue;
+			}
+
+			if (type == TYPE_INT) {
+				int arg = va_arg(args, int);
+				val = &arg;
+			}
+
+			if (type == TYPE_FLOAT) {
+				float arg = (float)va_arg(args, double);
+				val = &arg;
+			}
+
+			else if (type == TYPE_DOUBLE) {
+				*str++;
+				double arg = va_arg(args, double);
+				val = &arg;
+			}
+
+			toString(holder, _size, type, val);
+
+			for (int i = 0; holder[i] != '\0'; i++) {
+				if (bufferCount >= sizeof(buffer) - 1) break;
+				buffer[bufferCount++] = holder[i];
+			}
+
+			*str++;
+		}
+		else {
+			if (bufferCount >= sizeof(buffer) - 1) break;
+			buffer[bufferCount++] = *str++;
+		}
+	}
+
+	va_end(args);
+	buffer[bufferCount++] = '\0';
+	free(holder);
+	for (int i = 0; buffer[i] != '\0'; i++) 
+					my_putchar(buffer[i]); // equivalent fputc(c, stdout);
+										   // or write to buffer
+	
+	return 1;
+}
+
+int main() {
+	int x = 21;
+	char* z = "maamar";
+	char f = 'f';
+	printf("");
+	my_printf("my name is %s im %lf Old, i like letter %c", z, 5551.955, f);
+}
