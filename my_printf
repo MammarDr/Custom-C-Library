@@ -127,6 +127,7 @@ void toString(char* _holder, size_t _holderCount, DataType type, void* var) {
 	}
 	
 	else {
+		free(buffer);
 		throw_error("Invalid Data Type - toString()");
 	}
 }
