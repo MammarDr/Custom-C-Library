@@ -52,7 +52,8 @@ void throw_error(const char* error) {
 void toString(char* _holder, size_t _holderCount, DataType type, void* var) {
 
 	char*	buffer = malloc(sizeof(char) * 64);
-	size_t	_count = 0, count = 0;
+	size_t	_count = 0, 
+		 count = 0;
 
 	if (!buffer) return;
 
@@ -84,8 +85,8 @@ void toString(char* _holder, size_t _holderCount, DataType type, void* var) {
 		long long  temp = 1;
 		for (int i = 0; i < N; i++) temp *= 10;  
 
-		double		value = (type == TYPE_FLOAT) ? *(float*)var : *(double*)var;
-		int			integer = (int)value;
+		double		value   = (type == TYPE_FLOAT) ? *(float*)var : *(double*)var;
+		int		integer = (int)value;
 		long long	decimal = llabs((long long)((value - integer) * temp + 0.5)); // long long absolute
 
 		if (value < 0) {
@@ -149,9 +150,10 @@ int my_printf(const char* str, ...) {
 
 	char	buffer[1024];
 
-	size_t	bufferCount = 0, _size = 64;
+	size_t	bufferCount = 0, 
+		_size = 64;
 
-	char*	holder = malloc(sizeof(char) * _size);
+	char*	holder      = malloc(sizeof(char) * _size);
 
 	if (!holder) return;
 
@@ -219,12 +221,12 @@ int my_printf(const char* str, ...) {
 		}
 	}
 
-	va_end(args);
 	buffer[bufferCount++] = '\0';
+	va_end(args);
 	free(holder);
 	for (int i = 0; buffer[i] != '\0'; i++) 
-					my_putchar(buffer[i]); // equivalent fputc(c, stdout);
-										   // or write to buffer
+			my_putchar(buffer[i]); // equivalent fputc(c, stdout);
+					       // or write to buffer
 	
 	return 1;
 }
